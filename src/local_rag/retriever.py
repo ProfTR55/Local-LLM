@@ -1,99 +1,49 @@
 """Hibrit (benzerlik + önem) skorlu geri çağırma.
 
-Standart RAG: sadece embedding cosine benzerliği kullanılır.
-Bu projenin katkısı: önem skoru ile ağırlıklandırılmış hibrit skor.
+Bu modül projenin BİLİMSEL KATKISIDIR.
+Standart RAG sadece embedding cosine benzerliğini kullanır.
+Bizim katkımız: önem skoru ile ağırlıklandırılmış hibrit skor.
 
     final_score = SIM_WEIGHT * similarity + IMP_WEIGHT * importance
+
+Default ağırlıklar: 0.7 / 0.3 (KEYFİ — final raporda ablation ile savun!)
+
+Yapılacaklar:
+    1. RetrievedMemory dataclass'ı tanımla:
+        - id, text, similarity, importance, final_score, timestamp, role
+    2. Retriever sınıfını oluştur
+    3. __init__: memory, embedder, sim_weight, imp_weight parametreleri
+       Default'ları settings'ten oku.
+       sim_weight + imp_weight ≈ 1.0 olmalı, değilse ValueError fırlat
+    4. retrieve(query, top_k, candidate_pool, where) -> list[RetrievedMemory]
+       - Sorguyu embed et
+       - memory.query(top_k=candidate_pool) ile aday havuzunu çek
+         (candidate_pool > top_k olmalı; örn. 20 aday içinden top 5)
+       - Her aday için _hybrid_score() hesapla
+       - final_score'a göre azalan sıraya diz
+       - İlk top_k tanesini döndür
+    5. _hybrid_score(similarity, importance) -> float
+       sim_weight * similarity + imp_weight * importance
+
+İpucu:
+    candidates = self.memory.query(query_vec, top_k=20)
+    scored = [
+        RetrievedMemory(
+            ...,
+            final_score=self._hybrid_score(c["similarity"], c["importance"])
+        )
+        for c in candidates
+    ]
+    scored.sort(key=lambda m: m.final_score, reverse=True)
+    return scored[:top_k]
+
+DENEY FIRSATLARI (raporda kullanılacak):
+    - Farklı (sim_w, imp_w) kombinasyonlarını test et
+    - Sadece similarity (saf RAG) vs hibrit karşılaştır
+    - Top-k değerinin etkisi
 """
 
-from __future__ import annotations
-
-from dataclasses import dataclass
-from typing import Any
-
-from .config import settings
-from .embedder import Embedder, get_embedder
-from .memory_store import MemoryStore
-
-
-@dataclass
-class RetrievedMemory:
-    """Geri çağrılan tek bir hafıza parçası."""
-
-    id: str
-    text: str
-    similarity: float
-    importance: float
-    final_score: float
-    timestamp: str | None
-    role: str
-
-
-class Retriever:
-    """Embedder + MemoryStore + hibrit skorlama orkestrasyonu."""
-
-    def __init__(
-        self,
-        memory: MemoryStore | None = None,
-        embedder: Embedder | None = None,
-        sim_weight: float | None = None,
-        imp_weight: float | None = None,
-    ) -> None:
-        self.memory = memory or MemoryStore()
-        self.embedder = embedder or get_embedder()
-        self.sim_weight = sim_weight if sim_weight is not None else settings.retrieval_sim_weight
-        self.imp_weight = imp_weight if imp_weight is not None else settings.retrieval_imp_weight
-
-        # Ağırlıkların toplamı 1 olmalı (uyarı için)
-        total = self.sim_weight + self.imp_weight
-        if abs(total - 1.0) > 1e-6:
-            raise ValueError(
-                f"sim_weight + imp_weight = {total}, beklenen: 1.0"
-            )
-
-    def retrieve(
-        self,
-        query: str,
-        top_k: int | None = None,
-        candidate_pool: int = 20,
-        where: dict[str, Any] | None = None,
-    ) -> list[RetrievedMemory]:
-        """Sorguya göre hibrit skorlu top-k hafıza parçası döndür.
-
-        Args:
-            query: Kullanıcı sorgusu.
-            top_k: Döndürülecek sonuç sayısı (varsayılan: settings).
-            candidate_pool: Yeniden sıralama için ChromaDB'den çekilecek aday sayısı.
-            where: ChromaDB metadata filtresi.
-
-        Returns:
-            final_score'a göre azalan sırada hafıza listesi.
-        """
-        top_k = top_k or settings.retrieval_top_k
-        query_vec = self.embedder.encode(query).tolist()
-
-        candidates = self.memory.query(
-            embedding=query_vec,
-            top_k=candidate_pool,
-            where=where,
-        )
-
-        scored = [
-            RetrievedMemory(
-                id=c["id"],
-                text=c["text"],
-                similarity=c["similarity"],
-                importance=c["importance"],
-                final_score=self._hybrid_score(c["similarity"], c["importance"]),
-                timestamp=c.get("timestamp"),
-                role=c.get("role", "user"),
-            )
-            for c in candidates
-        ]
-
-        scored.sort(key=lambda m: m.final_score, reverse=True)
-        return scored[:top_k]
-
-    def _hybrid_score(self, similarity: float, importance: float) -> float:
-        """final = sim_weight * similarity + imp_weight * importance"""
-        return self.sim_weight * similarity + self.imp_weight * importance
+# TODO: RetrievedMemory dataclass'ı
+# TODO: Retriever sınıfı + __init__ + ağırlık doğrulama
+# TODO: retrieve() metodu
+# TODO: _hybrid_score() metodu

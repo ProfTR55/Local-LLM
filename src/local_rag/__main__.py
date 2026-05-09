@@ -1,6 +1,11 @@
-"""`python -m local_rag` ile çalıştırma noktası."""
+"""`python -m local_rag` ile çalıştırma noktası.
 
-from .cli import main
+Yapılacak:
+    cli.main() fonksiyonunu çağır ve dönüş değerini sys.exit ile döndür.
 
-if __name__ == "__main__":
+İpucu:
+    from .cli import main
     raise SystemExit(main())
+"""
+
+# TODO: cli.main()'i çağır

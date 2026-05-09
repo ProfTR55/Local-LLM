@@ -1,74 +1,42 @@
-"""Terminal arayüzü — `python -m local_rag` veya `local-rag` ile çalıştırılır."""
+"""Terminal arayüzü — `python -m local_rag` veya `local-rag` ile çalıştırılır.
 
-from __future__ import annotations
+Sorumluluk:
+    Kullanıcıdan terminal'den giriş al, RAGPipeline'a yönlendir,
+    cevabı renkli/formatlı göster.
 
-import sys
+Yapılacaklar:
+    1. main() fonksiyonu — programın giriş noktası
+    2. Karşılama mesajı (rich.Panel ile çerçeveli)
+    3. RAGPipeline'ı başlat
+    4. while True döngüsü:
+        - Kullanıcıdan input al (rich.Prompt.ask veya input())
+        - Boş giriş → atla
+        - "/exit" veya "/quit" → çıkış
+        - "/help" → komut listesi
+        - "/memory" → hafızadaki kayıt sayısı
+        - Diğer → pipeline.ask() çağır, cevabı yazdır
+    5. KeyboardInterrupt / EOFError yakala (Ctrl+C, Ctrl+D)
+    6. Hata yönetimi: try/except ile çökme yerine kullanıcıya hata göster
 
-from rich.console import Console
-from rich.panel import Panel
-from rich.prompt import Prompt
+İpucu (rich kütüphanesi):
+    from rich.console import Console
+    from rich.panel import Panel
+    from rich.prompt import Prompt
 
-from .rag_pipeline import RAGPipeline
+    console = Console()
+    console.print(Panel.fit("Hoşgeldin", border_style="cyan"))
+    user_input = Prompt.ask("[bold green]sen[/bold green]")
+    console.print(f"[bold magenta]asistan[/bold magenta]: {answer}")
 
-console = Console()
+İLERİ:
+    - Streaming yanıt (her token geldikçe yazdır) — llm.stream() kullan
+    - "/forget <id>" komutu — bir anıyı sil
+    - "/recall" komutu — son N anıyı göster
+    - Renkli prompt'lar
+"""
 
-
-def main() -> int:
-    console.print(
-        Panel.fit(
-            "[bold cyan]Local RAG[/bold cyan]\n"
-            "Kişisel hafıza destekli yerel chatbot\n"
-            "[dim]çıkış: /exit  |  hafıza: /memory  |  yardım: /help[/dim]",
-            border_style="cyan",
-        )
-    )
-
-    pipe = RAGPipeline()
-
-    while True:
-        try:
-            user_input = Prompt.ask("[bold green]sen[/bold green]").strip()
-        except (KeyboardInterrupt, EOFError):
-            console.print("\n[dim]görüşürüz![/dim]")
-            return 0
-
-        if not user_input:
-            continue
-
-        if user_input in ("/exit", "/quit"):
-            console.print("[dim]görüşürüz![/dim]")
-            return 0
-
-        if user_input == "/help":
-            _print_help()
-            continue
-
-        if user_input == "/memory":
-            console.print(f"[dim]hafıza kayıt sayısı: {pipe.memory.count()}[/dim]")
-            continue
-
-        # Soru-cevap
-        try:
-            result = pipe.ask(user_input)
-        except Exception as e:  # pragma: no cover
-            console.print(f"[red]hata:[/red] {e}")
-            continue
-
-        console.print(f"[bold magenta]asistan[/bold magenta]: {result.answer}")
-        if result.used_memories:
-            console.print(
-                f"[dim]({len(result.used_memories)} anı kullanıldı)[/dim]"
-            )
-
-
-def _print_help() -> None:
-    console.print(
-        "[bold]Komutlar:[/bold]\n"
-        "  /exit, /quit  — çıkış\n"
-        "  /memory       — kayıt sayısını göster\n"
-        "  /help         — bu yardım"
-    )
-
-
-if __name__ == "__main__":
-    sys.exit(main())
+# TODO: main() fonksiyonu
+# TODO: Karşılama paneli
+# TODO: RAGPipeline başlat
+# TODO: REPL döngüsü
+# TODO: Slash komutları (/exit, /help, /memory)
