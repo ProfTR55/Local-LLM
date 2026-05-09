@@ -1,0 +1,80 @@
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# ===== Virtual Environments =====
+.venv/
+venv/
+env/
+ENV/
+.env
+
+# ===== IDE / Editor =====
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ===== Testing / Coverage =====
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+
+# ===== Jupyter =====
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# ===== Project-specific =====
+# Vector database (local persisted data)
+chroma_db/
+*.chroma
+
+# User conversation data — KESİNLİKLE commit'lenmemeli (KVKK)
+data/*
+!data/.gitkeep
+
+# Model cache (Sentence-BERT, Ollama indirilen modeller)
+models/
+.cache/
+*.bin
+*.safetensors
+*.gguf
+
+# Logs
+logs/
+*.log
+
+# Secret / config
+.env
+.env.local
+*.secret
+
+# Experiment outputs
+experiments/results/
+*.pkl
+*.npy

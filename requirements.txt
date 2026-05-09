@@ -1,0 +1,23 @@
+# ===== Çalışma zamanı bağımlılıkları =====
+
+# Embedding modeli — Sentence-BERT
+sentence-transformers>=2.7.0
+
+# Yerel vektör veritabanı
+chromadb>=0.5.0
+
+# Yerel LLM client (Ollama)
+ollama>=0.3.0
+
+# Ortam değişkenleri
+python-dotenv>=1.0.0
+
+# CLI / TUI
+rich>=13.7.0
+
+# Tip ve veri doğrulama
+pydantic>=2.6.0
+
+# (Opsiyonel) RAG çatısı — başlangıçta kullanmıyoruz, ileride eklenebilir
+# langchain>=0.2.0
+# langchain-community>=0.2.0
