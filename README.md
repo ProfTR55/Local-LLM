@@ -68,8 +68,8 @@ Local_Llm/
 
 ### 1. Repo'yu klonla
 ```bash
-git clone https://github.com/<kullanici-adi>/local-rag.git
-cd local-rag
+git clone https://github.com/ProfTR55/Local-LLM.git
+cd Local-LLM
 ```
 
 ### 2. Sanal ortam oluştur
@@ -150,7 +150,7 @@ Bu projeyi akademik bir çalışmada kullanırsanız aşağıdaki şekilde atıf
   author = {Bingöl, Muhammet Doğukan and Aydın, Beyza Sude},
   title  = {Local RAG: Kişisel Hafıza Destekli Yerel Chatbot},
   year   = {2026},
-  url    = {https://github.com/<kullanici-adi>/local-rag}
+  url    = {https://github.com/ProfTR55/Local-LLM}
 }
 ```
 

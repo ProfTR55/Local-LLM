@@ -49,8 +49,8 @@ eval = [
 local-rag = "local_rag.cli:main"
 
 [project.urls]
-Repository = "https://github.com/<kullanici-adi>/local-rag"
-Issues = "https://github.com/<kullanici-adi>/local-rag/issues"
+Repository = "https://github.com/ProfTR55/Local-LLM"
+Issues = "https://github.com/ProfTR55/Local-LLM/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]
