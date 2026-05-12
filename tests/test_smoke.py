@@ -1,70 +1,116 @@
-"""Smoke testler — modüller doldukça eklenecek.
+"""Smoke testler.
 
-Smoke test = "duman testi". Sistemin temel parçaları çalışıyor mu, hızlı doğrulama.
+Bu dosyada issue bazlı modüller tamamlandıkça hızlı doğrulama testleri aktifleşir.
+"""
 
-Yazılması gereken testler (her modülü implement ettikten sonra ekle):
+from local_rag.anonymizer import (
+    DetectedPII,
+    RegexDetector,
+    anonymize,
+    anonymize_with_report,
+    apply_spans,
+    is_valid_luhn,
+    is_valid_tckn,
+    merge_spans,
+)
 
-# ----- Anonimleştirme -----
+
 def test_anonymizer_imports_and_masks_email():
-    \"\"\"E-posta maskeleniyor mu?\"\"\"
-    from local_rag.anonymizer import anonymize
+    """E-posta maskeleniyor mu?"""
+
     out = anonymize("Bana mail at: ali@example.com")
+
     assert "ali@example.com" not in out
     assert "[MASKED_EMAIL]" in out
 
+
 def test_anonymizer_masks_phone_tr():
-    \"\"\"Türkiye formatında telefon maskeleniyor mu?\"\"\"
-    # Test et: "0532 123 45 67" → "[MASKED_PHONE]"
+    """Türkiye formatında telefon maskeleniyor mu?"""
+
+    out = anonymize("Telefonum 0532 123 45 67, yedek +90 532 123 45 67")
+
+    assert "0532 123 45 67" not in out
+    assert "+90 532 123 45 67" not in out
+    assert out.count("[MASKED_PHONE]") == 2
+
 
 def test_anonymizer_report_counts():
-    \"\"\"AnonymizationReport doğru sayım yapıyor mu?\"\"\"
-    # Birden fazla PII içeren metni geçir, counts dict'ini doğrula
+    """AnonymizationReport doğru sayım yapıyor mu?"""
 
-# ----- Önem skorlama -----
-def test_importance_score_in_range():
-    \"\"\"Skor [0, 1] aralığında mı?\"\"\"
-    from local_rag.importance import calculate_importance
-    score = calculate_importance("herhangi bir metin")
-    assert 0.0 <= score <= 1.0
+    report = anonymize_with_report(
+        "Mail ali@example.com, tel 0532 123 45 67, "
+        "TCKN 10000000146, IBAN TR330006100519786457841326, "
+        "kart 4111 1111 1111 1111"
+    )
 
-def test_importance_high_for_personal_identity():
-    \"\"\"Kişisel bilgi içeren mesaj geçici mesajdan yüksek skor mu alıyor?\"\"\"
-    high = calculate_importance("Adım Doğukan, alerjim var")
-    low = calculate_importance("Bugün hava güzel")
-    assert high > low
+    assert report.counts == {
+        "EMAIL": 1,
+        "PHONE": 1,
+        "TCKN": 1,
+        "IBAN": 1,
+        "CARD": 1,
+    }
+    assert "[MASKED_EMAIL]" in report.masked_text
+    assert "[MASKED_PHONE]" in report.masked_text
+    assert "[MASKED_TCKN]" in report.masked_text
+    assert "[MASKED_IBAN]" in report.masked_text
+    assert "[MASKED_CARD]" in report.masked_text
 
-# ----- Config -----
-def test_settings_loads_with_defaults():
-    \"\"\"settings nesnesi default değerlerle yükleniyor mu?\"\"\"
-    from local_rag.config import settings
-    assert settings.retrieval_top_k > 0
-    assert abs(settings.retrieval_sim_weight + settings.retrieval_imp_weight - 1.0) < 1e-6
 
-# ----- Retriever ağırlık doğrulaması -----
-def test_retriever_rejects_invalid_weights():
-    \"\"\"sim_weight + imp_weight != 1.0 ise ValueError fırlatıyor mu?\"\"\"
-    import pytest
-    from local_rag.retriever import Retriever
-    with pytest.raises(ValueError):
-        Retriever(sim_weight=0.5, imp_weight=0.6)
+def test_anonymizer_regex_detector_returns_spans():
+    spans = RegexDetector().detect("Mailim ali@x.com")
 
-# ----- İmport edilebilirlik -----
-@pytest.mark.parametrize("module_name", [
-    "local_rag", "local_rag.config", "local_rag.anonymizer",
-    "local_rag.importance", "local_rag.embedder", "local_rag.memory_store",
-    "local_rag.retriever", "local_rag.llm_client", "local_rag.rag_pipeline",
-    "local_rag.cli",
-])
-def test_module_imports(module_name):
-    \"\"\"Her modül import edilebilmeli (ağır bağımlılık yüklenmeden).\"\"\"
-    import importlib
-    importlib.import_module(module_name)
+    assert spans == [
+        DetectedPII(start=7, end=16, pii_type="EMAIL", source="regex", confidence=1.0)
+    ]
 
-İPUÇLARI:
-    - pytest çalıştır: `pytest -v`
-    - Tek modül: `pytest tests/test_smoke.py::test_anonymizer_imports_and_masks_email`
-    - Coverage: `pytest --cov=local_rag`
-"""
 
-# TODO: Yukarıdaki testleri tek tek implement et
-# (Önce ilgili modülü doldur, sonra testini aktif hale getir)
+def test_anonymizer_merge_resolves_overlap_with_priority():
+    email = DetectedPII(start=0, end=15, pii_type="EMAIL", source="regex", confidence=1.0)
+    person = DetectedPII(start=0, end=3, pii_type="PERSON", source="ner", confidence=0.85)
+
+    merged = merge_spans([person, email])
+
+    assert merged == [email]
+
+
+def test_anonymizer_apply_spans_preserves_offsets():
+    text = "X ali@example.com Y 0532 123 45 67"
+    email_start = text.index("ali@example.com")
+    phone_start = text.index("0532")
+    spans = [
+        DetectedPII(
+            start=email_start,
+            end=email_start + len("ali@example.com"),
+            pii_type="EMAIL",
+            source="regex",
+            confidence=1.0,
+        ),
+        DetectedPII(
+            start=phone_start,
+            end=phone_start + len("0532 123 45 67"),
+            pii_type="PHONE",
+            source="regex",
+            confidence=1.0,
+        ),
+    ]
+
+    assert apply_spans(text, spans) == "X [MASKED_EMAIL] Y [MASKED_PHONE]"
+
+
+def test_anonymizer_tckn_validator_rejects_invalid_checksum():
+    assert not is_valid_tckn("12345678901")
+    assert is_valid_tckn("10000000146")
+
+
+def test_anonymizer_luhn_validator_rejects_invalid_card():
+    assert not is_valid_luhn("1234 5678 9012 3456")
+    assert is_valid_luhn("4111 1111 1111 1111")
+
+
+def test_anonymizer_false_positive_invalid_tckn_lower_confidence():
+    spans = RegexDetector().detect("TCKN adayım 12345678901")
+
+    assert spans == [
+        DetectedPII(start=12, end=23, pii_type="TCKN", source="regex", confidence=0.4)
+    ]
