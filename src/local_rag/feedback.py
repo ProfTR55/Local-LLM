@@ -7,54 +7,46 @@ from local_rag.importance import ImportanceDecision
 
 
 DEFAULT_FEEDBACK_PATH = Path("data/importance_feedback.jsonl")
-POSITIVE_DELTA = 0.10
-NEGATIVE_DELTA = -0.15
+STORE_DELTA = 0.10
+IGNORE_DELTA = -0.15
 
-POSITIVE_SIGNALS = {
-    "+",
-    "+1",
-    "1",
-    "up",
-    "like",
-    "liked",
-    "good",
-    "helpful",
-    "positive",
-    "yes",
-    "true",
+STORE_FEEDBACK_VALUES = {
+    "store",
+    "save",
+    "keep",
+    "kaydet",
+    "sakla",
+    "hatırla",
     "evet",
-    "e",
-    "iyi",
+    "yes",
+    "doğru",
+    "dogru",
+    "uygun",
     "yararlı",
     "faydali",
     "faydalı",
     "beğendim",
     "begendim",
-    "👍",
 }
 
-NEGATIVE_SIGNALS = {
-    "-",
-    "-1",
-    "0",
-    "down",
-    "dislike",
-    "disliked",
-    "bad",
-    "unhelpful",
-    "negative",
-    "no",
-    "false",
+IGNORE_FEEDBACK_VALUES = {
+    "ignore",
+    "skip",
+    "discard",
+    "kaydetme",
+    "saklama",
+    "unut",
     "hayır",
     "hayir",
-    "h",
-    "kötü",
-    "kotu",
+    "no",
+    "yanlış",
+    "yanlis",
+    "uygunsuz",
+    "gereksiz",
     "yararsız",
     "yararsiz",
     "beğenmedim",
     "begenmedim",
-    "👎",
 }
 
 
@@ -63,7 +55,7 @@ class FeedbackEvent:
     """Bir hafıza kaydına uygulanan geri bildirim sonucunu tutar."""
 
     memory_id: str
-    signal: int
+    feedback: str
     previous_importance: float
     updated_importance: float
     reason: str | None = None
@@ -89,46 +81,43 @@ def _clamp_score(score: float) -> float:
     return max(0.0, min(1.0, score))
 
 
-def normalize_feedback(feedback: str | int | bool) -> int:
-    """Geri bildirim değerini +1 veya -1 sinyaline çevirir."""
+def normalize_feedback(feedback: str) -> str:
+    """Geri bildirimi standart store/ignore etiketine çevirir."""
 
-    if isinstance(feedback, bool):
-        return 1 if feedback else -1
-
-    if isinstance(feedback, int):
-        return 1 if feedback > 0 else -1
+    if not isinstance(feedback, str):
+        raise ValueError("feedback metin olarak verilmelidir")
 
     normalized = str(feedback).strip().lower()
 
-    if normalized in POSITIVE_SIGNALS:
-        return 1
+    if normalized in STORE_FEEDBACK_VALUES:
+        return "store"
 
-    if normalized in NEGATIVE_SIGNALS:
-        return -1
+    if normalized in IGNORE_FEEDBACK_VALUES:
+        return "ignore"
 
-    raise ValueError(f"Bilinmeyen feedback sinyali: {feedback!r}")
+    raise ValueError(f"Bilinmeyen feedback değeri: {feedback!r}")
 
 
 def _normalize_feedback(user_feedback: str) -> str:
     """Kullanıcı feedback değerini standart hale getirir."""
 
-    return "up" if normalize_feedback(user_feedback) > 0 else "down"
+    return normalize_feedback(user_feedback)
 
 
 def apply_feedback(
     importance: float,
-    feedback: str | int | bool,
+    feedback: str,
     *,
-    positive_delta: float = POSITIVE_DELTA,
-    negative_delta: float = NEGATIVE_DELTA,
+    store_delta: float = STORE_DELTA,
+    ignore_delta: float = IGNORE_DELTA,
 ) -> float:
     """Mevcut önem skorunu geri bildirime göre günceller."""
 
     if not 0.0 <= importance <= 1.0:
         raise ValueError("importance 0.0 ile 1.0 arasında olmalı")
 
-    signal = normalize_feedback(feedback)
-    delta = positive_delta if signal > 0 else negative_delta
+    normalized_feedback = normalize_feedback(feedback)
+    delta = store_delta if normalized_feedback == "store" else ignore_delta
 
     return _clamp_score(importance + delta)
 
@@ -136,18 +125,18 @@ def apply_feedback(
 def create_feedback_event(
     memory_id: str,
     importance: float,
-    feedback: str | int | bool,
+    feedback: str,
     *,
     reason: str | None = None,
 ) -> FeedbackEvent:
     """Geri bildirim sonucunu açıklanabilir bir event olarak döndürür."""
 
-    signal = normalize_feedback(feedback)
-    updated_importance = apply_feedback(importance, signal)
+    normalized_feedback = normalize_feedback(feedback)
+    updated_importance = apply_feedback(importance, normalized_feedback)
 
     return FeedbackEvent(
         memory_id=memory_id,
-        signal=signal,
+        feedback=normalized_feedback,
         previous_importance=importance,
         updated_importance=updated_importance,
         reason=reason,
@@ -162,7 +151,7 @@ def create_feedback_record(
     """Mesaj, sistem kararı ve kullanıcı feedback'inden kayıt oluşturur."""
 
     normalized_feedback = _normalize_feedback(user_feedback)
-    final_should_store = normalized_feedback == "up"
+    final_should_store = normalized_feedback == "store"
 
     return FeedbackRecord(
         message=message,

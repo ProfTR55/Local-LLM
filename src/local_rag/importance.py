@@ -4,14 +4,15 @@ Bu modül projenin BİLİMSEL KATKISININ kalbidir. Doğru kalibrasyonu için
 deney yapman ve etiketli bir test seti oluşturman gerekir.
 
 v0 yaklaşımı (heuristik):
-    - Kişisel kimlik / sağlık / kalıcı tercih ifadeleri yüksek puan alır
+    - Kişisel kimlik / sağlık / açık hobi-fobi / iletişim-adres bilgileri
+      yüksek puan alır
     - Geçici durumlar (hava, anlık duygu) düşük puan alır
     - v0.2 itibarıyla mesaj uzunluğu katkısı kaldırıldı
     - Regex kuralları category + weight + reason yapısına taşındı
     - should_store kararı eklendi
 
 v0.3 yaklaşımı:
-    - Kullanıcı geri bildirimi (👍/👎) JSONL dataset olarak kaydedilir
+    - Kullanıcı geri bildirimi JSONL dataset olarak kaydedilir
 
 v0.4 yaklaşımı:
     - Active learning katmanı eklendi
@@ -19,7 +20,7 @@ v0.4 yaklaşımı:
 
 v1 yaklaşımı (ileride):
     - Etiketli veri ile fine-tuned küçük bir BERT classifier
-    - Kullanıcı geri bildirimi (👍/👎) skoru günceller
+    - Kullanıcı geri bildirimi skoru günceller
 
 DİKKAT (bilimsel uyarı):
     Buradaki katsayılar keyfi seçimlerdir. Final raporda bunları
@@ -94,22 +95,53 @@ PATTERN_RULES = [
         reason="Kullanıcının ilaç bilgisi olabilir.",
     ),
     PatternRule(
-        pattern=r"\bmesleğ(?:im|i)\b|\bçalışıyorum\b",
-        category="work",
-        weight=0.25,
-        reason="Kullanıcının iş veya meslek bilgisi olabilir.",
+        pattern=r"\bhobi(?:m|lerim)?\b",
+        category="hobby",
+        weight=0.30,
+        reason="Kullanıcının açık hobi bilgisi olabilir.",
     ),
     PatternRule(
-        pattern=r"\bokuyorum\b",
-        category="education",
-        weight=0.25,
-        reason="Kullanıcının eğitim bilgisi olabilir.",
+        pattern=r"\bfobi(?:m|lerim)?\b",
+        category="phobia",
+        weight=0.30,
+        reason="Kullanıcının açık fobi bilgisi olabilir.",
     ),
     PatternRule(
-        pattern=r"\bsevmem\b|\bseviyorum\b|\btercih(?:im| ederim)\b",
-        category="preference",
-        weight=0.20,
-        reason="Kullanıcının tercihi olabilir.",
+        pattern=r"\badresim\b|\b(?:ev|iş) adresim\b",
+        category="address",
+        weight=0.35,
+        reason="Kullanıcının adres bilgisi olabilir.",
+    ),
+    PatternRule(
+        pattern=(
+            r"\b(?:telefon(?:um| numaram)|cep numaram)\b|"
+            r"\b(?:\+?90[\s.-]*)?(?:0[\s.-]*)?(?:5\d{2}|[2-4]\d{2})"
+            r"[\s.-]*\d{3}[\s.-]*\d{2}[\s.-]*\d{2}\b"
+        ),
+        category="contact",
+        weight=0.35,
+        reason="Kullanıcının telefon bilgisi olabilir.",
+    ),
+    PatternRule(
+        pattern=(
+            r"\b(?:e-?posta(?:m| adresim)?|email(?:im| adresim)?)\b|"
+            r"\b[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}\b"
+        ),
+        category="email",
+        weight=0.35,
+        reason="Kullanıcının e-posta bilgisi olabilir.",
+    ),
+    PatternRule(
+        pattern=r"\bdoğum (?:tarihim|günüm)\b",
+        category="birth_date",
+        weight=0.35,
+        reason="Kullanıcının doğum tarihi bilgisi olabilir.",
+    ),
+    PatternRule(
+        pattern=r"\b(?:yaşadığım şehir|yaşadığım yer|memleketim|ikamet ettiğim şehir)\b",
+        category="location",
+        weight=0.30,
+        reason="Kullanıcının açık konum/şehir bilgisi olabilir.",
     ),
     PatternRule(
         pattern=r"\bbug[üu]n\b|\bşu an\b|\bşimdi\b|\bgeçici\b",
@@ -202,7 +234,19 @@ def get_memory_action(should_store: bool, should_ask: bool) -> str:
 def explain_importance(message: str) -> ImportanceDecision:
     """Mesajın önem skorunu, kategorisini ve kayıt kararını döndürür."""
 
-    text = message.lower()
+    text = message.strip().lower()
+
+    if not text:
+        return ImportanceDecision(
+            score=0.0,
+            label="low",
+            category=None,
+            should_store=False,
+            should_ask_feedback=False,
+            action="ignore",
+            matched_rules=[],
+            reasons=["Boş mesaj önem bilgisi içermez."],
+        )
 
     matched_rules = [
         rule
@@ -248,8 +292,9 @@ def main(argv: list[str] | None = None) -> None:
         "Benim adım Doğukan",
         "Fıstığa alerjim var",
         "Bugün hava çok güzel",
-        "Kahve sevmem",
-        "Kitap okumayı tercih ederim",
+        "Hobim satranç",
+        "Telefon numaram 0532 123 45 67",
+        "E-postam dogukan@example.com",
     ]
 
     for message in messages:
@@ -266,4 +311,3 @@ def main(argv: list[str] | None = None) -> None:
 
 if __name__ == "__main__":
     main()
-

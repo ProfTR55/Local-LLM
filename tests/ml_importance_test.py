@@ -1,9 +1,57 @@
+import json
+from pathlib import Path
+
 from local_rag.ml_importance import (
     ImportanceExample,
     evaluate,
     load_feedback_dataset,
     train_model,
 )
+
+
+TRAINING_EXAMPLES = [
+    ImportanceExample("Benim adım Doğukan", True),
+    ImportanceExample("Adım Beyza", True),
+    ImportanceExample("İsmim Ahmet", True),
+    ImportanceExample("Soyadım Bingöl", True),
+    ImportanceExample("Benim soyadım Yılmaz", True),
+    ImportanceExample("Fıstığa alerjim var", True),
+    ImportanceExample("Penisiline alerjim var", True),
+    ImportanceExample("Astım hastalığım var", True),
+    ImportanceExample("Düzenli kullandığım ilacım var", True),
+    ImportanceExample("Yazılım geliştirici olarak çalışıyorum", True),
+    ImportanceExample("Öğretmen olarak çalışıyorum", True),
+    ImportanceExample("Mesleğim bilgisayar mühendisliği", True),
+    ImportanceExample("Backend developer olarak çalışıyorum", True),
+    ImportanceExample("Bilgisayar mühendisliği okuyorum", True),
+    ImportanceExample("Üniversitede okuyorum", True),
+    ImportanceExample("Tıp fakültesinde okuyorum", True),
+    ImportanceExample("Kahve sevmem", True),
+    ImportanceExample("Çay seviyorum", True),
+    ImportanceExample("Baharatlı yemek sevmem", True),
+    ImportanceExample("Kısa cevapları tercih ederim", True),
+    ImportanceExample("Uzun açıklamaları seviyorum", True),
+    ImportanceExample("Bugün hava çok güzel", False),
+    ImportanceExample("Bugün dışarı çıktım", False),
+    ImportanceExample("Şu an çok yorgunum", False),
+    ImportanceExample("Şimdi kahve içiyorum", False),
+    ImportanceExample("Bugün biraz canım sıkkın", False),
+    ImportanceExample("Şu an açım", False),
+    ImportanceExample("Susadım", False),
+    ImportanceExample("Hava çok sıcak", False),
+    ImportanceExample("Bugün yağmur yağıyor", False),
+    ImportanceExample("Bu geçici bir durum", False),
+    ImportanceExample("Merhaba", False),
+    ImportanceExample("Nasılsın", False),
+    ImportanceExample("Selam", False),
+    ImportanceExample("Teşekkür ederim", False),
+    ImportanceExample("Tamamdır", False),
+    ImportanceExample("Görüşürüz", False),
+    ImportanceExample("Kahve içtim", False),
+    ImportanceExample("Bugün Python çalıştım", False),
+    ImportanceExample("Bugün erken kalktım", False),
+    ImportanceExample("Bugün spor yaptım", False),
+]
 
 
 UNSEEN_EXAMPLES = [
@@ -60,15 +108,46 @@ UNSEEN_EXAMPLES = [
 ]
 
 
-def test_unseen_examples_are_not_in_seed_dataset():
-    seed_messages = {example.message for example in load_feedback_dataset()}
+def _write_feedback_dataset(
+    path: Path,
+    examples: list[ImportanceExample],
+) -> None:
+    records = [
+        {
+            "message": example.message,
+            "final_should_store": example.should_store,
+        }
+        for example in examples
+    ]
+
+    path.write_text(
+        "\n".join(
+            json.dumps(record, ensure_ascii=False)
+            for record in records
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def test_unseen_examples_are_not_in_training_dataset(tmp_path):
+    feedback_path = tmp_path / "importance_feedback.jsonl"
+    _write_feedback_dataset(feedback_path, TRAINING_EXAMPLES)
+
+    training_messages = {
+        example.message
+        for example in load_feedback_dataset(path=feedback_path)
+    }
     unseen_messages = {example.message for example in UNSEEN_EXAMPLES}
 
-    assert unseen_messages.isdisjoint(seed_messages)
+    assert unseen_messages.isdisjoint(training_messages)
 
 
-def test_model_generalizes_to_unseen_examples():
-    model, _, _ = train_model()
+def test_model_generalizes_to_unseen_examples(tmp_path):
+    feedback_path = tmp_path / "importance_feedback.jsonl"
+    _write_feedback_dataset(feedback_path, TRAINING_EXAMPLES)
+
+    model, _, _ = train_model(path=feedback_path)
     report = evaluate(model, UNSEEN_EXAMPLES)
 
     assert report.accuracy >= 0.8

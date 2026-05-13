@@ -264,7 +264,7 @@ def append_seed_feedback() -> None:
                 "predicted_should_store": decision.should_store,
                 "predicted_should_ask_feedback": decision.should_ask_feedback,
                 "predicted_action": decision.action,
-                "user_feedback": "up" if final_should_store else "down",
+                "user_feedback": "store" if final_should_store else "ignore",
                 "final_should_store": final_should_store,
                 "source": "seed",
                 "created_at": datetime.now(timezone.utc).isoformat(),
